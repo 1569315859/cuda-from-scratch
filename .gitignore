@@ -4,3 +4,6 @@ vector_add
 device_query
 coalesce
 reduce
+omp_sum
+omp_matmul
+mpi_matmul

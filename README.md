@@ -31,6 +31,20 @@
 
 `reduce.cu`：5 个版本的求和（atomic → 交错归约 → 顺序归约 → 加载时相加 → grid-stride + warp shuffle）。实测结果待补。
 
+## 第 3 课 · OpenMP / MPI 矩阵乘法（`lesson3-openmp-mpi/`）
+
+- `omp_sum.cpp`：竞争条件、critical / atomic / reduction、伪共享对比
+- `omp_matmul.cpp`：i-j-k vs i-k-j 循环顺序，OpenMP 并行，GFLOPS = 2N³/t
+- `mpi_matmul.cpp`：按行分块（Scatter / Bcast / Gather），分发、计算、回收分别计时
+
+实测加速比：待补。
+
+```bash
+cd lesson3-openmp-mpi
+sudo apt install openmpi-bin libopenmpi-dev   # 首次
+make && make bench
+```
+
 ## 编译
 
 ```bash
