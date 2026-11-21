@@ -1,0 +1,6 @@
+*.o
+*.out
+vector_add
+device_query
+coalesce
+reduce
