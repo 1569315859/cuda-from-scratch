@@ -18,6 +18,11 @@ int main(int argc, char** argv) {
     const double* p = a.data();
     printf("N = %ld, threads = %d\n", n, T);
 
+    // 0) 预热：先完整读一遍数组，让 CPU 升频、TLB/页表就绪，避免第一个被测版本吃亏
+    { volatile double w = 0.0; for (long i = 0; i < n; ++i) w = w + p[i]; (void)w; }
+    #pragma omp parallel
+    { volatile int dummy = omp_get_thread_num(); (void)dummy; }   // 预先创建线程池
+
     // 1) 串行基准
     double t = omp_get_wtime();
     double ref = 0.0;
