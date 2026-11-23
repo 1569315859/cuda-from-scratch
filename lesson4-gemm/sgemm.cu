@@ -184,7 +184,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     printf("N = %d, 模式 = %s\n\n", n, profile ? "profile（每个 kernel 只跑 1 次，不计时）"
-                                              : "benchmark（1 次预热 + 10 次计时）");
+                                              : "benchmark（GPU 唤醒 0.5 秒 + 每版 1 次预热 + 10 次计时）");
 
     // ---- 2. 主机端数据 ----
     std::vector<float> hA(nn), hB(nn), hC(nn), hRef(nn);
@@ -237,6 +237,21 @@ int main(int argc, char** argv) {
     dim3 grid16((n + 15) / 16, (n + 15) / 16);
     dim3 block32(32, 32);
     dim3 grid32((n + 31) / 32, (n + 31) / 32);
+
+    // ---- 唤醒 GPU：笔记本独显空闲时会降到低频甚至断电，刚启动时频率还没升上来。
+    // 实测（2026-11-23）：冷启动第一次 make run 所有版本都慢 4~5 倍，第二次起才稳定。
+    // 所以正式计时前先连续跑朴素 kernel 至少 0.5 秒，把频率「拉满」。profile 模式不需要。
+    if (!profile) {
+        auto t0 = std::chrono::steady_clock::now();
+        int spins = 0;
+        while (std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count() < 0.5) {
+            sgemm_naive<<<grid16, block16>>>(dA, dB, dC, n);
+            CUDA_CHECK(cudaDeviceSynchronize());
+            ++spins;
+        }
+        CUDA_CHECK(cudaGetLastError());
+        printf("GPU 唤醒：先跑了 %d 次朴素 kernel（约 0.5 秒），不计时\n\n", spins);
+    }
 
     printf("%-16s %10s %10s %10s %12s %s\n", "版本", "平均 ms", "最快 ms", "GFLOPS", "max_rel_err",
            "结果");
