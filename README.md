@@ -90,7 +90,20 @@ make && make bench COUNTS="1 2 4 6 8 12 14 20"
 - 另含反面教材 `sgemm_naive_bad`（不合并访问）供 Nsight Compute 对比；编译开关 `SKIP_FIRST_SYNC` / `SKIP_SECOND_SYNC` / `NO_BOUNDS` 故意制造 bug，供 compute-sanitizer 检查
 - `cache_order.cpp`：i-j-k vs i-k-j，用 cachegrind 看 CPU 缓存缺失率
 
-实测结果：待补。
+实测结果（RTX 2050 4 GB 笔记本，WSL2，float，1 次预热 + 10 次取平均，2026-11-23）：
+
+| 版本 | N=1024 平均 ms | GFLOPS | N=1000 平均 ms | GFLOPS | 相对 naive（N=1024） |
+|---|---|---|---|---|---|
+| naive | 27.296 | 78.7 | 25.424 | 78.7 | 1.00× |
+| naive_bad（不合并） | 115.266 | 18.6 | 48.789 | 41.0 | 0.24× |
+| tile16 | 20.887 | 102.8 | 19.943 | 100.3 | 1.31× |
+| tile32 | 21.524 | 99.8 | 21.276 | 94.0 | 1.27× |
+| cuBLAS | 2.727 | 787.4 | 2.675 | 747.8 | 10.0× |
+
+- 所有版本与 CPU 串行结果对比 max_rel_err ≤ 2.3e-6（cuBLAS 求和顺序不同，误差略大）
+- `-Xptxas -v`：四个 kernel 均 0 spill；tile32 用 38 寄存器 / 8 KB smem，按寄存器换算每 SM 只能放 1 个 1024 线程 block（理论占用率 67%），tile16 理论 100%，与 tile16 略快一致
+- naive_bad 在 N=1024 比 N=1000 慢得多（2 的幂步长），原因待用 Nsight Compute 确认
+- 手写分块与 cuBLAS 仍差约 7.7×，第 5 课用寄存器分块缩小差距
 
 ```bash
 cd lesson4-gemm
