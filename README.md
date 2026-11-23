@@ -2,7 +2,9 @@
 
 从零学习 CUDA 的练习代码与实测记录。所有数字均为本人机器实测。
 
-**环境**：NVIDIA GeForce RTX 2050 (2 GB, Laptop)，Windows + WSL2 Ubuntu，驱动 610.47 Studio
+**环境**：NVIDIA GeForce RTX 2050 (4 GB, Laptop)，Windows + WSL2 Ubuntu，驱动 620.73，CUDA 13.5，Nsight Compute 2026.4
+
+每课目录下附有讲义 PDF（`CUDA第N课详细版.pdf`）。
 
 **CPU**：Intel i7-12700H，6 个性能核（带超线程）+ 8 个能效核 = 14 核 20 线程，L3 24 MB。注意 WSL 里 `lscpu` 显示为「10 核 × 2 线程」，与真实拓扑不符。
 
