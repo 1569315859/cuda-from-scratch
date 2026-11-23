@@ -82,6 +82,22 @@ sudo apt install openmpi-bin libopenmpi-dev   # 首次
 make && make bench COUNTS="1 2 4 6 8 12 14 20"
 ```
 
+## 第 4 课 · CUDA 矩阵乘法 SGEMM（`lesson4-gemm/`）
+
+- `sgemm.cu`：v1 朴素 kernel（每线程算一个 C 元素）→ v2 shared memory 分块（TILE=16 / 32）→ v3 cuBLAS 作为上限；cudaEvent 计时（1 次预热 + 10 次），GFLOPS = 2N³/t，与 CPU 结果对比误差
+- 另含反面教材 `sgemm_naive_bad`（不合并访问）供 Nsight Compute 对比；编译开关 `SKIP_FIRST_SYNC` / `SKIP_SECOND_SYNC` / `NO_BOUNDS` 故意制造 bug，供 compute-sanitizer 检查
+- `cache_order.cpp`：i-j-k vs i-k-j，用 cachegrind 看 CPU 缓存缺失率
+
+实测结果：待补。
+
+```bash
+cd lesson4-gemm
+make run            # 编译并运行
+make ncu-basic      # Nsight Compute 分析（需先在 Windows 端开启 GPU 性能计数器）
+make racecheck      # compute-sanitizer 竞争检查
+make cachegrind     # CPU 缓存分析
+```
+
 ## 编译
 
 ```bash
