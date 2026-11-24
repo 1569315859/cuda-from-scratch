@@ -35,9 +35,9 @@
 
 // ---------------------------------------------------------------------------
 // v1：朴素 kernel。线程 (x, y) 负责 C[row][col]，row 来自 y 方向，col 来自 x 方向。
-// 同一个 warp 里 32 个线程 threadIdx.x 连续 → col 连续：
-//   读 A[row][k]：32 个线程读同一个地址（广播）
-//   读 B[k][col]：32 个线程读连续 32 个 float（合并访问，128 字节）
+// 16x16 block 里一个 warp = 2 行 x 16 个线程（ty 取 2 个值，tx 取 0..15）：
+//   读 A[row][k]：2 个不同地址（每行 16 个线程广播）→ 2 个 sector
+//   读 B[k][col]：16 个连续 float（64 字节），两行读同一段 → 2 个 sector；ncu 实测 2.0 sectors/request
 // ---------------------------------------------------------------------------
 __global__ void sgemm_naive(const float* A, const float* B, float* C, int n) {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
@@ -51,7 +51,7 @@ __global__ void sgemm_naive(const float* A, const float* B, float* C, int n) {
 }
 
 // v1b：反面教材。只是把 row 和 col 的来源对调：threadIdx.x 连续 → row 连续。
-//   读 A[row][k]：32 个线程的地址相差 n 个 float（跨行），不合并
+//   读 A[row][k]：一个 warp = 16 个 tx × 2 个 ty → 碰 16 个不同行、16 个 sector；读 B 只碰 1 个 → ncu 实测 8.5 sectors/request（不是 32）
 //   写 C[row][col]：同样跨行，不合并
 __global__ void sgemm_naive_bad(const float* A, const float* B, float* C, int n) {
     int row = blockIdx.x * blockDim.x + threadIdx.x;

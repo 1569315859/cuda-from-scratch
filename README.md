@@ -110,15 +110,36 @@ make && make bench COUNTS="1 2 4 6 8 12 14 20"
 | 2048 | 325.2 | 102.1 | 419.3 | 480.0 | 3758.4 |
 | 4096 | 321.8 | 86.8 | 351.3 | 426.1 | 2187.8 |
 
-- N ≤ 1024 时 tile16 更快（占用率 100% vs 67%）；N ≥ 2048 时 tile32 反超（算术强度 TILE/4 更高，矩阵超出 L2 后更省显存带宽）——推测，待 ncu 确认
+- N ≤ 1024 时 tile16 更快，N ≥ 2048 时 tile32 反超。N=1024 的 ncu 证实了两边的原因：tile32 显存读取减半（142.83 MB vs 274.20 MB），但理论/实测占用率只有 66.67% / 66.63%（tile16 约 99%）。N=2048 的 ncu 还没测
 - N=256 时工作量太小，GPU 喂不饱，cuBLAS 也只有 1400 GFLOPS
 - N=4096 时 cuBLAS 和 tile16 的平均/最快时间差距变大，疑似长时间满载后笔记本降频；N=4096 正确性参照为 cuBLAS（CPU 太慢跳过）
 
 - 所有版本与 CPU 串行结果对比 max_rel_err ≤ 2.3e-6（cuBLAS 求和顺序不同，误差略大）
 - `-Xptxas -v`：四个 kernel 均 0 spill；tile32 用 38 寄存器 / 8 KB smem，按寄存器换算每 SM 只能放 1 个 1024 线程 block（理论占用率 67%），tile16 理论 100%，与 tile16 更快一致
-- naive_bad 在 N=1024 比 N=1000 慢得多（2 的幂步长），原因待用 Nsight Compute 确认
 - 手写分块与 cuBLAS 仍差约 8×，第 5 课用寄存器分块缩小差距
-- 踩坑：编译完第一次运行时所有版本（含 cuBLAS 和 CPU）都慢 4~5 倍（cuBLAS 仅 787 GFLOPS），第二次起稳定在上表。判断是笔记本独显空闲降频、1 次预热太短没把频率拉起来。已在 `sgemm.cu` 里加入正式计时前「连续跑 0.5 秒」的 GPU 唤醒步骤
+- 踩坑：编译完第一次运行时 GPU 各版本（含 cuBLAS）都慢 4.0~5.4 倍（cuBLAS 仅 787 GFLOPS），CPU 只慢约 1.5 倍，第二次起稳定在上表。判断是笔记本独显空闲降频、1 次预热太短没把频率拉起来。已在 `sgemm.cu` 里加入正式计时前「连续跑 0.5 秒」的 GPU 唤醒步骤
+
+**Nsight Compute（N=1024，2026-11-24；ncu 把 SM 锁在 1.24 GHz，所以时间只看比例）**：
+
+| 指标 | naive | naive_bad | tile16 | tile32 |
+|---|---|---|---|---|
+| 全局读 sectors/request | 2.0 | 8.5 | 3.98 | 4.0 |
+| sectors 总数 | 134,217,432 | 570,424,428 | 16,700,520 | 8,388,608 |
+| DRAM 读取 | 274.25 MB | 276.94 MB | 274.20 MB | 142.83 MB |
+| L1/TEX 吞吐 | 99.33% | 97.78% | 97.1% | 约 79% |
+| DRAM 吞吐 | 36.67% | 8.54% | 47.85% | 约 22.5% |
+| Mem Pipes Busy | 99.25% | 22.99% | 96.99% | 78.68% |
+| 实测占用率 | 99.01% | 99.13% | 99.03% | 66.63% |
+
+- naive 卡在 L1 和访存指令，不是显存：L1/TEX 99%，DRAM 只有 37%
+- naive_bad：16×16 block 里一个 warp 是 2 行 × 16 线程，读 A 碰 16 个 sector、读 B 碰 1 个，(16+1)/2 = 8.5（不是 32）。sectors 是 naive 的 4.25 倍，耗时约 4.3 倍，显存字节却几乎一样，代价在 L1 处理 sector
+- tile16 显存字节和 naive 一样，快在全局读请求少了 16 倍；共享内存和 L1 是同一块硬件，所以 L1/TEX 仍是 97%
+- 所有 kernel 的 DRAM 吞吐都不超过 48%，真正的墙是访存指令太多 → 第 5 课寄存器分块
+
+**compute-sanitizer（2026-11-24）**：
+- memcheck 正常版 N=1000：0 errors；去掉边界检查（`sgemm_nobounds`）：报 `Invalid __global__ read`，指向 sgemm.cu:90（最后一轮读 B，bRow = 1002），地址与手算下标 1,002,288 一致
+- racecheck 正常版 N=256：0 hazards；删掉第二个 `__syncthreads()`（`sgemm_nosync`）：报 2 errors（第 94 行写 Bs ↔ 第 101 行读）、3 warnings（第 93 行写 As ↔ 第 101 行读，及记录上限提示），tile16 / tile32 结果 WRONG（误差 9.15e-2 / 1.12e-1）
+- 待做：cachegrind（WSL2 上 perf 读不到硬件计数器，`cycles event is not supported`）
 
 ```bash
 cd lesson4-gemm
@@ -126,6 +147,17 @@ make run            # 编译并运行
 make ncu-basic      # Nsight Compute 分析（需先在 Windows 端开启 GPU 性能计数器）
 make racecheck      # compute-sanitizer 竞争检查
 make cachegrind     # CPU 缓存分析
+```
+
+## 第 5 课 · 寄存器分块（`lesson5-register-blocking/`）
+
+- `sgemm5.cu`：tile16（第 4 课基线）→ 1D 寄存器分块（每线程算 8 个 C）→ 2D 寄存器分块 8×8（外积）→ 2D + float4 向量化读写
+- 目标：减少共享内存读指令，把第 4 课测到的 LSU 瓶颈移走
+- 实测结果待补（见目录下 README.md）
+
+```bash
+cd lesson5-register-blocking
+make run && make ncu-sol
 ```
 
 ## 编译
