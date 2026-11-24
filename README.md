@@ -138,7 +138,7 @@ make && make bench COUNTS="1 2 4 6 8 12 14 20"
 
 **compute-sanitizer（2026-11-24）**：
 - memcheck 正常版 N=1000：0 errors；去掉边界检查（`sgemm_nobounds`）：报 `Invalid __global__ read`，指向 sgemm.cu:90（最后一轮读 B，bRow = 1002），地址与手算下标 1,002,288 一致
-- racecheck 正常版 N=256：0 hazards；删掉第二个 `__syncthreads()`（`sgemm_nosync`）：报 2 errors（第 94 行写 Bs ↔ 第 101 行读）、3 warnings（第 93 行写 As ↔ 第 101 行读，及记录上限提示），tile16 / tile32 结果 WRONG（误差 9.15e-2 / 1.12e-1）
+- racecheck 正常版 N=256：0 hazards；删掉第二个 `__syncthreads()`（`sgemm_nosync`）：报 2 errors（第 94 行写 Bs ↔ 第 101 行读）、3 warnings（第 93 行写 As ↔ 第 101 行读，及记录上限提示），跑了两次，tile16 / tile32 都 WRONG，误差两次不同（tile16 9.15e-2 → 1.01e-1，tile32 1.12e-1 → 8.87e-2），竞争导致的结果不确定
 - 待做：cachegrind（WSL2 上 perf 读不到硬件计数器，`cycles event is not supported`）
 
 ```bash
