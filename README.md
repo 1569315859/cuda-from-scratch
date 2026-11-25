@@ -153,11 +153,26 @@ make cachegrind     # CPU 缓存分析
 
 - `sgemm5.cu`：tile16（第 4 课基线）→ 1D 寄存器分块（每线程算 8 个 C）→ 2D 寄存器分块 8×8（外积）→ 2D + float4 向量化读写
 - 目标：减少共享内存读指令，把第 4 课测到的 LSU 瓶颈移走
-- 实测结果待补（见目录下 README.md）
+- `-Xptxas -v` 已实测（2026-11-25）：tile16 37 寄存器 / 2 KB smem，1d_tm8 48 / 4 KB，2d_8x8 128 / 8 KB，2d_vec 117 / 8 KB，全部 0 spill
+- 计时与 ncu 结果待补（见目录下 README.md）
 
 ```bash
 cd lesson5-register-blocking
 make run && make ncu-sol
+```
+
+## 第 6 课 · 双缓冲、cp.async、warp 分块、Tensor Core（`lesson6-double-buffer-tensorcore/`）
+
+GEMM 主线收尾，下一课转向 GPGPU Runtime（驱动 API / 上下文 / 模块 / kernel 启动路径）。
+
+- `sgemm6.cu`：2d_vec（第 5 课基线）→ db_reg（寄存器预取双缓冲，每轮 1 次同步）→ db_cpasync（cp.async 两级流水线，全局→共享不经过寄存器）→ warptile（block 128×128 → warp 64×32 → 线程 2×2 个 4×4）→ wmma_naive / wmma_fp16（Tensor Core，FP16 输入 FP32 累加）；对照 cuBLAS FP32 / TF32 / FP16
+- 编译开关 `SKIP_CP_WAIT`（去掉 cp.async wait）/ `SKIP_DB_SYNC`（去掉双缓冲唯一的同步）供 compute-sanitizer 演示；`test_l6_emulation.cpp` 在无 GPU 机器上用 CPU 线程模拟检查下标与流水线顺序（`make emu`）
+- 编译器参考（nvcc 13.5，sm_86，`-Xptxas -v`）：2d_vec 117 / db_reg 128（不加 `__launch_bounds__(256, 2)` 时 129，每 SM 只剩 1 个 block）/ db_cpasync 117 / warptile 119 / wmma_naive 40 / wmma_fp16 122 寄存器，全部 0 spill
+- 实测结果待补（见目录下 README.md）
+
+```bash
+cd lesson6-double-buffer-tensorcore
+make ptxas && make run && make ncu-metrics
 ```
 
 ## 编译

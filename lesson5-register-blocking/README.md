@@ -5,10 +5,10 @@ Timing: cudaEvent, 0.5 s GPU wake-up, 1 warm-up + 10 timed runs, average. Every 
 
 | Kernel | Idea | Threads/block | C per thread | Regs/thread (`-Xptxas -v`) | Theor. occupancy |
 |---|---|---|---|---|---|
-| `sgemm_tile16` | shared-memory tiling (lesson 4 baseline) | 256 | 1 | TBD | TBD |
-| `sgemm_1d_tm8` | 1D blocktiling, 64×64 block tile, BK=8 | 512 | 8 | TBD | TBD |
-| `sgemm_2d_8x8` | 2D blocktiling, 128×128 block tile, outer product in registers | 256 | 64 | TBD | TBD |
-| `sgemm_2d_vec` | 2D + float4 global loads/stores + transposed A tile in smem | 256 | 64 | TBD | TBD |
+| `sgemm_tile16` | shared-memory tiling (lesson 4 baseline) | 256 | 1 | 37, 0 spill | TBD |
+| `sgemm_1d_tm8` | 1D blocktiling, 64×64 block tile, BK=8 | 512 | 8 | 48, 0 spill | TBD |
+| `sgemm_2d_8x8` | 2D blocktiling, 128×128 block tile, outer product in registers | 256 | 64 | 128, 0 spill | TBD |
+| `sgemm_2d_vec` | 2D + float4 global loads/stores + transposed A tile in smem | 256 | 64 | 117, 0 spill | TBD |
 
 ### Performance (my measurements — fill in)
 
