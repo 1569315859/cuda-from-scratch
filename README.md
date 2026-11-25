@@ -154,7 +154,8 @@ make cachegrind     # CPU 缓存分析
 - `sgemm5.cu`：tile16（第 4 课基线）→ 1D 寄存器分块（每线程算 8 个 C）→ 2D 寄存器分块 8×8（外积）→ 2D + float4 向量化读写
 - 目标：减少共享内存读指令，把第 4 课测到的 LSU 瓶颈移走
 - `-Xptxas -v` 已实测（2026-11-25）：tile16 37 寄存器 / 2 KB smem，1d_tm8 48 / 4 KB，2d_8x8 128 / 8 KB，2d_vec 117 / 8 KB，全部 0 spill
-- 计时与 ncu 结果待补（见目录下 README.md）
+- 实测（2026-11-25，N = 1024）：tile16 472.4 → 1d_tm8 1372.9 → 2d_8x8 2466.6 → 2d_vec **3118.1 GFLOPS**（tile16 的 6.60 倍，cuBLAS 4230.6 的 73.7%）；共享读指令 41.9M → 2.1M，FFMA 恒为 N³，Mem Pipes Busy 97% → 31%
+- 预测失误：A 转置没有减少共享读 wavefront（两者都是每条 LDS.128 5 个）；按半 warp 分相的模型（推测）能精确解释四个 kernel，冲突全在读 B 一侧。详见目录下 README.md
 
 ```bash
 cd lesson5-register-blocking
