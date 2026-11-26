@@ -64,4 +64,16 @@ Shared ld/st instruction counts, FFMA = N³, global requests, registers and occu
 
 **Remaining gap / next.** 0.3125 shared wavefronts per FFMA is still above the 0.25 budget; ncu still reports "dominated by L1". Fix: have each half-warp read 256 contiguous bytes of B (split each thread's 8 columns into two 4-wide pieces) — which is the warp-tiling layout of lesson 6. Plus no double buffering with only ~3.7 warps per scheduler (No Eligible 42–52%).
 
-Not yet run: compute-sanitizer racecheck/memcheck for this lesson.
+### compute-sanitizer (2026-11-26)
+
+| Command | Result | Lines reported | Program result |
+|---|---|---|---|
+| racecheck, normal, N=256 | 0 hazards | — | all 4 OK |
+| racecheck, `-DSKIP_SECOND_SYNC`, N=256 | 5 hazards displayed (3 errors, 2 warnings), "Maximum number of hazards reached" | tile16: error 75 (Bs write) ↔ 79 (read), warning 74 (As write) ↔ 79; 1d_tm8: error 128 ↔ 137 (As), 129 ↔ 134 (Bs) | all 4 WRONG (8.69e-02 / 9.14e-02 / 8.12e-02 / 5.87e-02) |
+| memcheck, normal, N=1024 | 0 errors | — | all 4 OK |
+| memcheck, `-DNO_N_CHECK`, N=1000 | 24 errors, then process aborted | 1d_tm8 line 129 (B load), block (15,0,0) threads 488–511, 1–93 bytes past the 4,000,000-byte allocation | 2d kernels never ran |
+
+- The 2D kernels were WRONG without the second sync but racecheck listed nothing for them: the hazard cap was already used up by tile16 and 1d_tm8. No report ≠ no race.
+- The reported addresses check out by hand: block 15 covers columns 960–1023, threads 488–511 load columns 1000–1023 of row 999 in the last k-step (999×1000+1000 floats = exactly the end of the buffer). In earlier k-steps the same out-of-range columns read the start of the next row — inside the allocation, so memcheck cannot see them, but the values are wrong.
+
+Not run: `sgemm5_nosync1` racecheck, N=1002 float4 misalignment test.
