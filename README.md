@@ -184,6 +184,7 @@ Runtime 方向第一课：一行 `<<<>>>` 从编译器改写、runtime 注册表
 - `ctx_explore.cu`：runtime 与 driver 共用 primary context、线程局部的 current context、自建 context 的耗时与显存
 - `launch_overhead.cu`：懒加载 vs 立即加载的首次启动、异步提交与队列反压、启动 + 同步来回、`<<<>>>` / `cudaLaunchKernel` / `cuLaunchKernel` 对比
 - `errors.cu`：非粘性 vs 粘性错误，`cudaDeviceReset` 恢复
+- `linux/`：预备课，Linux 基础从零讲（线程局部存储、虚拟内存与 mmap、系统调用、动态库与 ELF、dlopen 与 LD_PRELOAD），不需要 GPU
 - `proc_addr.cu`、`hook_preview.cpp`：`dlsym` vs `cuGetProcAddress`，LD_PRELOAD 拦截 `cuLaunchKernel`（第 10 课预告）
 - 沙箱验证（nvcc 13.5）：静态链接的 runtime 导入表里没有 driver 函数，运行时通过 `cuGetProcAddress` 取地址；实测结果待补（见目录下 README.md）
 

@@ -11,6 +11,10 @@ RTX 2050 Laptop (GA107, sm_86, 16 SMs, 4 GB), WSL2 Ubuntu, CUDA 13.5, driver 620
 | `proc_addr` | `dlsym` vs `cuGetProcAddress` vs `cudaGetDriverEntryPointByVersion` for versioned symbols (`_v2`, `_v4`, `_ptsz`) |
 | `libhook_preview.so` | LD_PRELOAD hook of `cuLaunchKernel` (lesson 10 preview) |
 
+### Linux prerequisites (`linux/`, no GPU needed)
+
+`tls_demo` (thread_local vs global), `vm_demo` (address-space layout, mmap + page faults: RSS unchanged after mmap 256 MB, +128 MB after writing half), `syscall_cost` (sandbox: ~2.3 ns function call vs ~65 ns `getppid` syscall), `libmathx` + `app` + `libhook.so` (mini libcuda: `_v2` symbol versioning via macro, constructors before main, LD_PRELOAD intercepts direct calls but not `dlsym(handle)`; a `get_proc` pointer is intercepted unless the library is linked with `-Bsymbolic`). Sandbox is aarch64 — addresses and timings on x86-64 WSL will differ.
+
 ### Verified in the sandbox (no GPU; nvcc 13.5)
 
 - `ptxas -v`: `vadd` 12 regs / 380 B cmem[0]; `empty_kernel` 4 regs / 352 B cmem[0] (difference 28 B = 3 pointers + 1 int).
@@ -29,5 +33,5 @@ RTX 2050 Laptop (GA107, sm_86, 16 SMs, 4 GB), WSL2 Ubuntu, CUDA 13.5, driver 620
 | GPU throughput per empty kernel; launch+sync round trip | TBD |
 | `<<<>>>` / `cudaLaunchKernel` / `cuLaunchKernel` | TBD |
 | Empty kernel, grid 1 / 16 / 256 / 4096 / 65536 | TBD |
-| Hook count: `drv_vadd` (pred. 2), `launch_overhead` (pred. 20000, only the direct driver calls) | TBD |
+| Hook count: `drv_vadd` (pred. 2), `launch_overhead` (pred. 20000, only the direct driver calls, if libcuda binds internally like a `-Bsymbolic` library) | TBD |
 | `ioctl` count for `drv_vadd`; devices opened (`/dev/dxg`) | TBD |

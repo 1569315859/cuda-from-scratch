@@ -17,3 +17,9 @@ lesson7-driver-api-launch/*.ptx
 lesson7-driver-api-launch/*.cubin
 lesson7-driver-api-launch/*.fatbin
 *.nsys-rep
+lesson7-driver-api-launch/linux/tls_demo
+lesson7-driver-api-launch/linux/vm_demo
+lesson7-driver-api-launch/linux/syscall_cost
+lesson7-driver-api-launch/linux/app
+lesson7-driver-api-launch/linux/*.so*
+lesson7-driver-api-launch/linux/libmathx_sym/
