@@ -169,7 +169,7 @@ GEMM 主线收尾，下一课转向 GPGPU Runtime（驱动 API / 上下文 / 模
 - `sgemm6.cu`：2d_vec（第 5 课基线）→ db_reg（寄存器预取双缓冲，每轮 1 次同步）→ db_cpasync（cp.async 两级流水线，全局→共享不经过寄存器）→ warptile（block 128×128 → warp 64×32 → 线程 2×2 个 4×4）→ wmma_naive / wmma_fp16（Tensor Core，FP16 输入 FP32 累加）；对照 cuBLAS FP32 / TF32 / FP16
 - 编译开关 `SKIP_CP_WAIT`（去掉 cp.async wait）/ `SKIP_DB_SYNC`（去掉双缓冲唯一的同步）供 compute-sanitizer 演示；`test_l6_emulation.cpp` 在无 GPU 机器上用 CPU 线程模拟检查下标与流水线顺序（`make emu`）
 - 编译器参考（nvcc 13.5，sm_86，`-Xptxas -v`）：2d_vec 117 / db_reg 128（不加 `__launch_bounds__(256, 2)` 时 129，每 SM 只剩 1 个 block）/ db_cpasync 117 / warptile 119 / wmma_naive 40 / wmma_fp16 122 寄存器，全部 0 spill
-- 实测结果待补（见目录下 README.md）
+- 实测（RTX 2050，N = 1024）：双缓冲 3401.2 GFLOPS（+15.2%，Long Scoreboard 0.95 → 0.03，cuBLAS FP32 的 80.4%）；cp.async 因 4 字节拷贝塞满 MIO 反而慢 13%；warp 分块 bank 冲突 → 0、+16.4%；WMMA FP16 10105.2 GFLOPS，N = 2048 达到 cuBLAS FP16 的 92.7%；sanitizer 抓到删同步 / 删 wait 的竞争（详见目录下 README.md）
 
 ```bash
 cd lesson6-double-buffer-tensorcore
