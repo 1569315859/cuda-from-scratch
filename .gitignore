@@ -7,3 +7,13 @@ reduce
 omp_sum
 omp_matmul
 mpi_matmul
+lesson7-driver-api-launch/drv_vadd
+lesson7-driver-api-launch/ctx_explore
+lesson7-driver-api-launch/launch_overhead
+lesson7-driver-api-launch/errors
+lesson7-driver-api-launch/proc_addr
+lesson7-driver-api-launch/*.so
+lesson7-driver-api-launch/*.ptx
+lesson7-driver-api-launch/*.cubin
+lesson7-driver-api-launch/*.fatbin
+*.nsys-rep
